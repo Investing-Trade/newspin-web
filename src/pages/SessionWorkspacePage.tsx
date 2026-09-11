@@ -121,16 +121,25 @@ export function SessionWorkspacePage() {
 
       {daily.todayNews.length > 0 && (
         <section className="rounded border border-gray-200 p-4">
-          <h2 className="mb-2 font-medium">오늘의 뉴스</h2>
+          <h2 className="mb-1 font-medium">오늘의 뉴스</h2>
+          <p className="mb-2 text-xs text-gray-400">제목을 눌러 본문을 볼 수 있어요.</p>
           <ul className="flex flex-col gap-1 text-sm">
             {daily.todayNews.map((n) => (
-              <li key={n.newsId} className="border-b border-gray-100 py-1 last:border-0">
+              <li key={n.newsId} className="group border-b border-gray-100 py-1 last:border-0">
                 <details>
-                  <summary className="cursor-pointer list-none marker:hidden [&::-webkit-details-marker]:hidden">
-                    <span className="font-medium">{n.title}</span>
-                    {n.eventType && <span className="ml-2 text-xs text-amber-600">[{n.eventType}]</span>}
+                  <summary className="flex cursor-pointer list-none items-baseline gap-1.5 rounded px-1 py-1 marker:hidden hover:bg-gray-50 [&::-webkit-details-marker]:hidden">
+                    <span
+                      aria-hidden
+                      className="mt-0.5 text-gray-400 transition-transform duration-150 group-open:rotate-90"
+                    >
+                      ▶
+                    </span>
+                    <span className="font-medium underline decoration-gray-300 decoration-dashed underline-offset-2">
+                      {n.title}
+                    </span>
+                    {n.eventType && <span className="text-xs text-amber-600">[{n.eventType}]</span>}
                   </summary>
-                  <p className="mt-2 whitespace-pre-wrap text-gray-600">{n.content}</p>
+                  <p className="mt-2 whitespace-pre-wrap pl-5 text-gray-600">{n.content}</p>
                 </details>
               </li>
             ))}
