@@ -3,21 +3,14 @@ import { Link, useNavigate } from 'react-router-dom'
 
 import { authApi } from '../api/auth'
 
-type Step = 'email' | 'code' | 'password'
+type Step = 'email' | 'reset'
 
-/**
- * BE `UserService.signUp` 은 실제로는 이메일 인증 여부를 검사하지 않는다(email/password 만
- * 확인, 중복 이메일만 거부) — 그래도 `/user/email/send-verification`·`/verify` 가 존재하는
- * 이상 정상적인 가입 경로로 노출한다. FE 가 "인증 완료 전엔 다음 단계로 못 넘어가게" 막는
- * 게이팅을 자체적으로 건다(BE 가 강제하지 않는 만큼, 나중에 이 단계를 건너뛰는 예외 경로가
- * 필요해지면 여기만 손보면 된다).
- */
-export function SignUpPage() {
+export function ForgotPasswordPage() {
   const navigate = useNavigate()
   const [step, setStep] = useState<Step>('email')
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
-  const [password, setPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -27,44 +20,25 @@ export function SignUpPage() {
     setError(null)
     setIsSubmitting(true)
     try {
-      await authApi.sendVerificationEmail(email)
+      await authApi.sendPasswordResetCode(email)
       setInfo('인증코드를 이메일로 보냈습니다 (10분 이내 입력).')
-      setStep('code')
+      setStep('reset')
     } catch {
-      setError('이미 가입된 이메일이거나 발송에 실패했습니다.')
+      setError('가입된 이메일이 아니거나 발송에 실패했습니다.')
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  const verifyCode = async (e: FormEvent) => {
+  const reset = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
     setIsSubmitting(true)
     try {
-      const result = await authApi.verifyEmail(email, code)
-      if (result.verified) {
-        setStep('password')
-        setInfo(null)
-      } else {
-        setError(result.message)
-      }
-    } catch {
-      setError('인증 확인에 실패했습니다.')
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  const submitSignUp = async (e: FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    setIsSubmitting(true)
-    try {
-      await authApi.signUp({ email, password })
+      await authApi.resetPassword({ email, code, newPassword })
       navigate('/sign-in')
     } catch {
-      setError('회원가입에 실패했습니다.')
+      setError('인증코드가 올바르지 않거나 만료되었습니다.')
     } finally {
       setIsSubmitting(false)
     }
@@ -72,14 +46,14 @@ export function SignUpPage() {
 
   return (
     <div className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-4 px-6">
-      <h1 className="text-xl font-semibold">회원가입</h1>
+      <h1 className="text-xl font-semibold">비밀번호 재설정</h1>
 
       {step === 'email' && (
         <form onSubmit={sendCode} className="flex flex-col gap-3">
           <input
             type="email"
             required
-            placeholder="이메일"
+            placeholder="가입한 이메일"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="rounded border border-gray-300 px-3 py-2 text-sm"
@@ -95,8 +69,8 @@ export function SignUpPage() {
         </form>
       )}
 
-      {step === 'code' && (
-        <form onSubmit={verifyCode} className="flex flex-col gap-3">
+      {step === 'reset' && (
+        <form onSubmit={reset} className="flex flex-col gap-3">
           <p className="text-sm text-gray-500">{email}</p>
           {info && <p className="text-sm text-green-600">{info}</p>}
           <input
@@ -106,30 +80,13 @@ export function SignUpPage() {
             onChange={(e) => setCode(e.target.value)}
             className="rounded border border-gray-300 px-3 py-2 text-sm"
           />
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="rounded bg-gray-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-          >
-            {isSubmitting ? '확인 중…' : '인증 확인'}
-          </button>
-          <button type="button" onClick={() => setStep('email')} className="text-xs text-gray-400 underline">
-            이메일 다시 입력
-          </button>
-        </form>
-      )}
-
-      {step === 'password' && (
-        <form onSubmit={submitSignUp} className="flex flex-col gap-3">
-          <p className="text-sm text-green-600">이메일 인증 완료 — {email}</p>
           <input
             type="password"
             required
             minLength={8}
-            placeholder="비밀번호"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            placeholder="새 비밀번호"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
             className="rounded border border-gray-300 px-3 py-2 text-sm"
           />
           {error && <p className="text-sm text-red-600">{error}</p>}
@@ -138,15 +95,14 @@ export function SignUpPage() {
             disabled={isSubmitting}
             className="rounded bg-gray-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
-            {isSubmitting ? '가입 중…' : '가입하기'}
+            {isSubmitting ? '변경 중…' : '비밀번호 변경'}
           </button>
         </form>
       )}
 
       <p className="text-center text-sm text-gray-500">
-        이미 계정이 있으신가요?{' '}
         <Link to="/sign-in" className="underline">
-          로그인
+          로그인으로 돌아가기
         </Link>
       </p>
     </div>

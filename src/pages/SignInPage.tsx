@@ -54,12 +54,14 @@ export function SignInPage() {
           {isSubmitting ? '로그인 중…' : '로그인'}
         </button>
       </form>
-      <p className="text-center text-sm text-gray-500">
-        계정이 없으신가요?{' '}
+      <div className="flex justify-between text-sm text-gray-500">
         <Link to="/sign-up" className="underline">
           회원가입
         </Link>
-      </p>
+        <Link to="/forgot-password" className="underline">
+          비밀번호를 잊으셨나요?
+        </Link>
+      </div>
     </div>
   )
 }
