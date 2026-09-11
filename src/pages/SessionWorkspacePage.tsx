@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { simulationApi } from '../api/simulation'
 import { stockApi } from '../api/stock'
+import { PriceSparkline } from '../components/PriceSparkline'
 import type { TradeType } from '../api/domain'
 import { useInvestmentReport } from '../hooks/useInvestmentReport'
 import { useTradeHistory } from '../hooks/useTradeHistory'
@@ -39,6 +40,7 @@ export function SessionWorkspacePage() {
   const [selectedStock, setSelectedStock] = useState('')
   const [quantity, setQuantity] = useState(1)
   const [tradeError, setTradeError] = useState<string | null>(null)
+  const selectedStockInfo = stocks?.find((s) => s.stockCode === selectedStock)
 
   const invalidateSessionQueries = () => {
     queryClient.invalidateQueries({ queryKey: ['daily-data', id] })
@@ -171,12 +173,20 @@ export function SessionWorkspacePage() {
               setTradeError(null)
               trade.mutate('SELL')
             }}
-            className="rounded bg-red-600 px-3 py-2 text-white disabled:opacity-40"
+            className="rounded bg-red-600 px-3 py-2 text-sm text-white disabled:opacity-40"
           >
             매도
           </button>
         </div>
         {tradeError && <p className="mt-2 text-sm text-red-600">{tradeError}</p>}
+        {selectedStockInfo && (
+          <div className="mt-3">
+            <p className="mb-1 text-xs text-gray-500">
+              최근 {selectedStockInfo.prices.length}거래일 (주황 점 = 이벤트 뉴스 발생일)
+            </p>
+            <PriceSparkline prices={selectedStockInfo.prices} />
+          </div>
+        )}
       </section>
 
       {portfolio && (

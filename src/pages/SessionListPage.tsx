@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 
+import { simulationApi } from '../api/simulation'
 import { useSessionList } from '../hooks/useSessionList'
 
 const PAGE_SIZE = 20
@@ -8,6 +10,12 @@ const PAGE_SIZE = 20
 export function SessionListPage() {
   const [page, setPage] = useState(0)
   const { data, isLoading, isError } = useSessionList({ page, size: PAGE_SIZE })
+  const queryClient = useQueryClient()
+
+  const abandon = useMutation({
+    mutationFn: (sessionId: number) => simulationApi.abandonSession(sessionId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['sessions'] }),
+  })
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -25,16 +33,30 @@ export function SessionListPage() {
         <>
           <ul className="flex flex-col gap-2">
             {data.content.map((session) => (
-              <li key={session.sessionId}>
-                <Link
-                  to={`/sessions/${session.sessionId}`}
-                  className="block rounded border border-gray-200 px-4 py-3 text-sm hover:bg-gray-50"
-                >
+              <li
+                key={session.sessionId}
+                className="flex items-center justify-between rounded border border-gray-200 px-4 py-3 text-sm hover:bg-gray-50"
+              >
+                <Link to={`/sessions/${session.sessionId}`} className="flex-1">
                   <span className="font-medium">#{session.sessionId}</span>{' '}
                   <span className="text-gray-500">
                     {session.startDate} ~ {session.endDate} · {session.status}
                   </span>
                 </Link>
+                {session.status === 'ACTIVE' && (
+                  <button
+                    disabled={abandon.isPending}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      if (confirm(`세션 #${session.sessionId}을(를) 포기할까요?`)) {
+                        abandon.mutate(session.sessionId)
+                      }
+                    }}
+                    className="ml-2 text-xs text-gray-400 hover:text-red-600 disabled:opacity-40"
+                  >
+                    포기
+                  </button>
+                )}
               </li>
             ))}
             {data.content.length === 0 && <p className="text-sm text-gray-500">세션이 없습니다.</p>}
