@@ -6,6 +6,7 @@ import { getErrorMessage } from '../api/errors'
 import { Button } from '../components/ui/Button'
 import { ErrorMessage } from '../components/ui/ErrorMessage'
 import { FormField } from '../components/ui/FormField'
+import { IntroPanel } from '../components/IntroPanel'
 
 type Step = 'email' | 'code' | 'password'
 
@@ -75,72 +76,77 @@ export function SignUpPage() {
   }
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-sm flex-col justify-center gap-4 px-4 sm:px-6">
-      <h1 className="text-xl font-semibold">회원가입</h1>
+    <div className="mx-auto grid min-h-screen w-full max-w-4xl grid-cols-1 items-center gap-10 px-4 py-10 sm:px-6 lg:grid-cols-2">
+      <div className="order-2 lg:order-1">
+        <IntroPanel />
+      </div>
+      <div className="order-1 flex w-full max-w-sm flex-col gap-4 lg:order-2">
+        <h2 className="text-xl font-semibold">회원가입</h2>
 
-      {step === 'email' && (
-        <form onSubmit={sendCode} className="flex flex-col gap-3">
-          <FormField
-            label="이메일"
-            type="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          {error && <ErrorMessage>{error}</ErrorMessage>}
-          <Button type="submit" disabled={isSubmitting} className="w-full">
-            {isSubmitting ? '발송 중…' : '인증코드 발송'}
-          </Button>
-        </form>
-      )}
+        {step === 'email' && (
+          <form onSubmit={sendCode} className="flex flex-col gap-3">
+            <FormField
+              label="이메일"
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            {error && <ErrorMessage>{error}</ErrorMessage>}
+            <Button type="submit" disabled={isSubmitting} className="w-full">
+              {isSubmitting ? '발송 중…' : '인증코드 발송'}
+            </Button>
+          </form>
+        )}
 
-      {step === 'code' && (
-        <form onSubmit={verifyCode} className="flex flex-col gap-3">
-          <p className="text-sm text-gray-500">{email}</p>
-          {info && (
+        {step === 'code' && (
+          <form onSubmit={verifyCode} className="flex flex-col gap-3">
+            <p className="text-sm text-gray-500">{email}</p>
+            {info && (
+              <p role="status" className="text-sm text-green-600">
+                {info}
+              </p>
+            )}
+            <FormField label="인증코드" required value={code} onChange={(e) => setCode(e.target.value)} />
+            {error && <ErrorMessage>{error}</ErrorMessage>}
+            <Button type="submit" disabled={isSubmitting} className="w-full">
+              {isSubmitting ? '확인 중…' : '인증 확인'}
+            </Button>
+            <button type="button" onClick={() => setStep('email')} className="text-xs text-gray-400 underline">
+              이메일 다시 입력
+            </button>
+          </form>
+        )}
+
+        {step === 'password' && (
+          <form onSubmit={submitSignUp} className="flex flex-col gap-3">
             <p role="status" className="text-sm text-green-600">
-              {info}
+              이메일 인증 완료 — {email}
             </p>
-          )}
-          <FormField label="인증코드" required value={code} onChange={(e) => setCode(e.target.value)} />
-          {error && <ErrorMessage>{error}</ErrorMessage>}
-          <Button type="submit" disabled={isSubmitting} className="w-full">
-            {isSubmitting ? '확인 중…' : '인증 확인'}
-          </Button>
-          <button type="button" onClick={() => setStep('email')} className="text-xs text-gray-400 underline">
-            이메일 다시 입력
-          </button>
-        </form>
-      )}
+            <FormField
+              label="비밀번호"
+              type="password"
+              autoComplete="new-password"
+              required
+              minLength={8}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            {error && <ErrorMessage>{error}</ErrorMessage>}
+            <Button type="submit" disabled={isSubmitting} className="w-full">
+              {isSubmitting ? '가입 중…' : '가입하기'}
+            </Button>
+          </form>
+        )}
 
-      {step === 'password' && (
-        <form onSubmit={submitSignUp} className="flex flex-col gap-3">
-          <p role="status" className="text-sm text-green-600">
-            이메일 인증 완료 — {email}
-          </p>
-          <FormField
-            label="비밀번호"
-            type="password"
-            autoComplete="new-password"
-            required
-            minLength={8}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          {error && <ErrorMessage>{error}</ErrorMessage>}
-          <Button type="submit" disabled={isSubmitting} className="w-full">
-            {isSubmitting ? '가입 중…' : '가입하기'}
-          </Button>
-        </form>
-      )}
-
-      <p className="text-center text-sm text-gray-500">
-        이미 계정이 있으신가요?{' '}
-        <Link to="/sign-in" className="underline">
-          로그인
-        </Link>
-      </p>
+        <p className="text-center text-sm text-gray-500">
+          이미 계정이 있으신가요?{' '}
+          <Link to="/sign-in" className="underline">
+            로그인
+          </Link>
+        </p>
+      </div>
     </div>
   )
 }

@@ -26,6 +26,9 @@ export function Layout() {
             <Link to="/news" className="text-gray-600 hover:text-gray-900">
               뉴스 학습
             </Link>
+            <Link to="/guide" className="text-gray-600 hover:text-gray-900">
+              사용법
+            </Link>
           </nav>
           <div className="flex items-center gap-3 text-sm text-gray-600">
             {user && <span className="hidden truncate sm:inline">{user.email}</span>}
