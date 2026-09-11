@@ -10,8 +10,13 @@ export function SessionListPage() {
   const { data, isLoading, isError } = useSessionList({ page, size: PAGE_SIZE })
 
   return (
-    <div className="mx-auto max-w-2xl px-6 py-8">
-      <h1 className="mb-4 text-xl font-semibold">내 모의투자 세션</h1>
+    <div className="mx-auto max-w-2xl">
+      <div className="mb-4 flex items-center justify-between">
+        <h1 className="text-xl font-semibold">내 모의투자 세션</h1>
+        <Link to="/sessions/new" className="rounded bg-gray-900 px-3 py-2 text-sm text-white">
+          새 세션
+        </Link>
+      </div>
 
       {isLoading && <p className="text-sm text-gray-500">불러오는 중…</p>}
       {isError && <p className="text-sm text-red-600">목록을 불러오지 못했습니다.</p>}
