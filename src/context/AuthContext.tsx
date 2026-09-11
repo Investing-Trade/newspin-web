@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 
 import { authApi, type UserDetail } from '../api/auth'
+import { SESSION_EXPIRED_EVENT } from '../api/client'
 import { tokenStorage } from '../api/tokenStorage'
 
 interface AuthContextValue {
@@ -26,6 +27,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then(setUser)
       .catch(() => tokenStorage.clear())
       .finally(() => setIsLoading(false))
+  }, [])
+
+  useEffect(() => {
+    // access token 만료 + refresh 실패(client.ts)를 여기서 받아 로그인 화면으로 돌려보낸다.
+    // 이미 폐기된 refresh token 이므로 BE 로그아웃 호출은 의미 없다 — 로컬 상태만 정리.
+    const onSessionExpired = () => {
+      tokenStorage.clear()
+      setUser(null)
+    }
+    window.addEventListener(SESSION_EXPIRED_EVENT, onSessionExpired)
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onSessionExpired)
   }, [])
 
   const value = useMemo<AuthContextValue>(
