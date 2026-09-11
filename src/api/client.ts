@@ -5,6 +5,9 @@ import type { ApiResponse } from './types'
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
 
+/** access token 이 만료됐고 refresh 마저 실패했을 때 window 에 쏘는 이벤트. `AuthContext` 가 구독. */
+export const SESSION_EXPIRED_EVENT = 'newspin:session-expired'
+
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
 })
@@ -61,7 +64,9 @@ apiClient.interceptors.response.use(
         original.headers.Authorization = `Bearer ${newAccessToken}`
         return apiClient(original)
       }
-      // refresh 도 실패 — 재로그인 필요. 라우팅은 컴포넌트 쪽(AuthContext)에서 401 전파로 처리.
+      // refresh 도 실패 — 세션이 완전히 끝남. React 트리 밖(axios 인터셉터)이라 라우터에 직접
+      // 접근할 수 없으므로 커스텀 이벤트로 알리고, AuthContext 가 구독해 로그인 화면으로 보낸다.
+      window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT))
     }
     return Promise.reject(error)
   },
