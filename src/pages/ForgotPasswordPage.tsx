@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { authApi } from '../api/auth'
+import { getErrorMessage } from '../api/errors'
 import { Button } from '../components/ui/Button'
 import { ErrorMessage } from '../components/ui/ErrorMessage'
 import { FormField } from '../components/ui/FormField'
@@ -26,8 +27,8 @@ export function ForgotPasswordPage() {
       await authApi.sendPasswordResetCode(email)
       setInfo('인증코드를 이메일로 보냈습니다 (10분 이내 입력).')
       setStep('reset')
-    } catch {
-      setError('가입된 이메일이 아니거나 발송에 실패했습니다.')
+    } catch (err) {
+      setError(getErrorMessage(err, '가입된 이메일이 아니거나 발송에 실패했습니다.'))
     } finally {
       setIsSubmitting(false)
     }
@@ -40,8 +41,8 @@ export function ForgotPasswordPage() {
     try {
       await authApi.resetPassword({ email, code, newPassword })
       navigate('/sign-in')
-    } catch {
-      setError('인증코드가 올바르지 않거나 만료되었습니다.')
+    } catch (err) {
+      setError(getErrorMessage(err, '인증코드가 올바르지 않거나 만료되었습니다.'))
     } finally {
       setIsSubmitting(false)
     }

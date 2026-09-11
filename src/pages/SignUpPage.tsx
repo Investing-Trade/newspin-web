@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { authApi } from '../api/auth'
+import { getErrorMessage } from '../api/errors'
 import { Button } from '../components/ui/Button'
 import { ErrorMessage } from '../components/ui/ErrorMessage'
 import { FormField } from '../components/ui/FormField'
@@ -33,8 +34,8 @@ export function SignUpPage() {
       await authApi.sendVerificationEmail(email)
       setInfo('인증코드를 이메일로 보냈습니다 (10분 이내 입력).')
       setStep('code')
-    } catch {
-      setError('이미 가입된 이메일이거나 발송에 실패했습니다.')
+    } catch (err) {
+      setError(getErrorMessage(err, '이미 가입된 이메일이거나 발송에 실패했습니다.'))
     } finally {
       setIsSubmitting(false)
     }
@@ -52,8 +53,8 @@ export function SignUpPage() {
       } else {
         setError(result.message)
       }
-    } catch {
-      setError('인증 확인에 실패했습니다.')
+    } catch (err) {
+      setError(getErrorMessage(err, '인증 확인에 실패했습니다.'))
     } finally {
       setIsSubmitting(false)
     }
@@ -66,8 +67,8 @@ export function SignUpPage() {
     try {
       await authApi.signUp({ email, password })
       navigate('/sign-in')
-    } catch {
-      setError('회원가입에 실패했습니다.')
+    } catch (err) {
+      setError(getErrorMessage(err, '회원가입에 실패했습니다.'))
     } finally {
       setIsSubmitting(false)
     }

@@ -26,18 +26,18 @@ describe('PriceSparkline', () => {
     expect(document.querySelector('svg')).not.toBeInTheDocument()
   })
 
-  it('종가가 오르면 상승 색(초록)으로 그린다', () => {
+  it('종가가 오르면 국내 관례상 상승 색(빨강)으로 그린다', () => {
     const prices = [point({ closePrice: 100 }), point({ closePrice: 110 })]
     const { container } = render(<PriceSparkline prices={prices} />)
     const path = container.querySelector('path')
-    expect(path).toHaveAttribute('stroke', '#16a34a')
+    expect(path).toHaveAttribute('stroke', '#e11d48')
   })
 
-  it('종가가 내리면 하락 색(빨강)으로 그린다', () => {
+  it('종가가 내리면 국내 관례상 하락 색(파랑)으로 그린다', () => {
     const prices = [point({ closePrice: 100 }), point({ closePrice: 90 })]
     const { container } = render(<PriceSparkline prices={prices} />)
     const path = container.querySelector('path')
-    expect(path).toHaveAttribute('stroke', '#dc2626')
+    expect(path).toHaveAttribute('stroke', '#2563eb')
   })
 
   it('이벤트 뉴스 발생일은 원을 더 크게(강조) 그린다', () => {
