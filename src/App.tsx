@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { Layout } from './components/Layout'
 import { CreateSessionPage } from './pages/CreateSessionPage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
+import { GuidePage } from './pages/GuidePage'
 import { NewsPage } from './pages/NewsPage'
 import { SessionListPage } from './pages/SessionListPage'
 import { SessionWorkspacePage } from './pages/SessionWorkspacePage'
@@ -16,6 +17,8 @@ export function App() {
       <Route path="/sign-in" element={<SignInPage />} />
       <Route path="/sign-up" element={<SignUpPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      {/* 로그인 여부와 무관하게 접근 가능 — 로그인 전 화면과 앱 내 nav 양쪽에서 연결 */}
+      <Route path="/guide" element={<GuidePage />} />
 
       <Route
         element={
