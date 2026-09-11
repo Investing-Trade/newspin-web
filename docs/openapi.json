@@ -1,0 +1,1826 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "NewsPin API",
+    "description": "뉴스 감정 판단 학습 + 모의투자 시뮬레이션 백엔드 API. 인증이 필요한 엔드포인트는 우측 상단 Authorize 에 access token 을 입력한다 (Bearer, `Authorization` 헤더 아님 — 스킴이 값 앞에 자동으로 붙는다).",
+    "version": "1.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080"
+    }
+  ],
+  "tags": [
+    {
+      "name": "뉴스 학습",
+      "description": "뉴스 감정 판단 학습 — 랜덤 뉴스 제시 후 사용자 판단을 AI 채점과 대조"
+    },
+    {
+      "name": "거래",
+      "description": "세션 내 매수/매도 실행 및 거래 내역 조회"
+    },
+    {
+      "name": "투자 리포트",
+      "description": "세션 종료 후 AI 투자 피드백 리포트. Gemini 호출은 비동기로 처리된다(I-11)."
+    },
+    {
+      "name": "종목 시세",
+      "description": "기준일까지의 주가 히스토리 조회. 기준일 이후 시세는 절대 반환하지 않는다(lookahead 차단, C-5). Redis 캐시 적용(I-3)."
+    },
+    {
+      "name": "사용자",
+      "description": "회원가입, 로그인/토큰 재발급, 이메일 인증, 비밀번호 재설정, 내 정보 조회"
+    },
+    {
+      "name": "모의투자 세션",
+      "description": "세션 생성/진행/조회. 시세는 세션의 currentSimulationDate 를 넘어서 조회되지 않는다(lookahead 차단)."
+    }
+  ],
+  "paths": {
+    "/simulation/sessions/{sessionId}/complete": {
+      "put": {
+        "tags": [
+          "모의투자 세션"
+        ],
+        "summary": "세션 종료",
+        "description": "세션을 COMPLETED 상태로 전환한다. 종료 후 투자 리포트(GET /{sessionId}/report) 조회가 가능하다.",
+        "operationId": "completeSession",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseSessionResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/user/sign-up": {
+      "post": {
+        "tags": [
+          "사용자"
+        ],
+        "summary": "회원가입",
+        "description": "이메일 인증이 완료된 이메일만 가입 가능하다.",
+        "operationId": "signUp",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignUpRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/user/sign-in": {
+      "post": {
+        "tags": [
+          "사용자"
+        ],
+        "summary": "로그인",
+        "description": "access token(24h) / refresh token(3d) 발급. refresh token 은 Redis 에 디바이스별로 저장된다.",
+        "operationId": "signIn",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignInRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseSignInResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/user/refresh": {
+      "post": {
+        "tags": [
+          "사용자"
+        ],
+        "summary": "토큰 재발급",
+        "description": "refresh token 으로 access/refresh token 을 함께 재발급한다(회전). 사용된 refresh token 은 즉시 무효화된다.",
+        "operationId": "refresh",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseSignInResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/user/password/send-reset-code": {
+      "post": {
+        "tags": [
+          "사용자"
+        ],
+        "summary": "비밀번호 재설정 코드 발송",
+        "operationId": "sendPasswordResetCode",
+        "parameters": [
+          {
+            "name": "email",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/user/password/reset": {
+      "post": {
+        "tags": [
+          "사용자"
+        ],
+        "summary": "비밀번호 재설정",
+        "description": "발송된 코드 확인 후 새 비밀번호로 변경한다.",
+        "operationId": "resetPassword",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordResetRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/user/logout": {
+      "post": {
+        "tags": [
+          "사용자"
+        ],
+        "summary": "로그아웃",
+        "description": "access token 을 블랙리스트에 등록하고 연결된 refresh token 을 무효화한다.",
+        "operationId": "logout",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/user/email/verify": {
+      "post": {
+        "tags": [
+          "사용자"
+        ],
+        "summary": "이메일 인증코드 확인",
+        "operationId": "verifyEmail",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailVerificationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseEmailVerificationResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/user/email/send-verification": {
+      "post": {
+        "tags": [
+          "사용자"
+        ],
+        "summary": "이메일 인증코드 발송",
+        "description": "가입/비밀번호 재설정 전 이메일 소유 확인용 인증코드를 발송한다.",
+        "operationId": "sendVerificationEmail",
+        "parameters": [
+          {
+            "name": "email",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/simulation/sessions": {
+      "get": {
+        "tags": [
+          "모의투자 세션"
+        ],
+        "summary": "내 세션 목록 조회 (페이지네이션)",
+        "description": "기본 page=0, size=20, 최대 size=100(I-10).",
+        "operationId": "getMySessionList",
+        "parameters": [
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponsePageResponseSessionResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "모의투자 세션"
+        ],
+        "summary": "세션 생성",
+        "description": "초기 자본과 시작일을 지정해 모의투자 세션을 시작한다.",
+        "operationId": "createSession",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseSessionResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/simulation/sessions/{sessionId}/trades": {
+      "get": {
+        "tags": [
+          "거래"
+        ],
+        "summary": "거래 내역 조회 (페이지네이션)",
+        "description": "기본 page=0, size=20, 최대 size=100(I-10).",
+        "operationId": "getTradeHistory",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponsePageResponseTradeResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "거래"
+        ],
+        "summary": "매수/매도 실행",
+        "description": "체결가는 서버가 세션 현재일 종가 기준으로 검증한다(요청값을 그대로 신뢰하지 않음, C-3).",
+        "operationId": "executeTrade",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TradeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseTradeResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/simulation/sessions/{sessionId}/next-day": {
+      "post": {
+        "tags": [
+          "모의투자 세션"
+        ],
+        "summary": "다음 거래일로 진행",
+        "description": "세션을 하루 진행시키고 자산 스냅샷을 저장한다(AssetHistory).",
+        "operationId": "proceedToNextDay",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseDayResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/news/{newsId}/analyze": {
+      "post": {
+        "tags": [
+          "뉴스 학습"
+        ],
+        "summary": "뉴스 감정 판단 제출",
+        "description": "사용자의 긍/부정 판단을 AI(newspin-ai) 채점 결과와 비교해 정오를 매기고, Gemini 로 생성한 튜터 피드백과 함께 반환한다. 판단 정오는 리포트(I-11)의 학습 정확도 섹션에도 반영된다(S-2).",
+        "operationId": "analyzeNews",
+        "parameters": [
+          {
+            "name": "newsId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AIAnalysisRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseAIAnalysisResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/user/me": {
+      "get": {
+        "tags": [
+          "사용자"
+        ],
+        "summary": "내 정보 조회",
+        "operationId": "getUserDetail",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseUserDetailResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/stocks/{stockCode}/price-range": {
+      "get": {
+        "tags": [
+          "종목 시세"
+        ],
+        "summary": "특정 종목 주가 히스토리 조회",
+        "description": "기준일(date)까지 최대 11거래일치 시세를 반환한다.",
+        "operationId": "getStockPriceHistoryRange",
+        "parameters": [
+          {
+            "name": "stockCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseStockPriceHistoryResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/stocks/price-range": {
+      "get": {
+        "tags": [
+          "종목 시세"
+        ],
+        "summary": "전체 종목 주가 히스토리 조회",
+        "description": "기준일(date)까지 전체 종목의 시세를 한 번에 반환한다(종목 간 비교용).",
+        "operationId": "getAllStocksPriceHistoryRange",
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseListStockPriceHistoryResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/simulation/sessions/{sessionId}": {
+      "get": {
+        "tags": [
+          "모의투자 세션"
+        ],
+        "summary": "세션 상세 조회",
+        "operationId": "getSessionDetail",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseSessionResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "모의투자 세션"
+        ],
+        "summary": "세션 포기",
+        "description": "세션을 ABANDONED 상태로 전환한다(물리 삭제 아님).",
+        "operationId": "deleteSession",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/simulation/sessions/{sessionId}/report": {
+      "get": {
+        "tags": [
+          "투자 리포트"
+        ],
+        "summary": "투자 리포트 조회 (비동기 생성, 폴링)",
+        "description": "규칙 기반 요약(자산/수익률/거래 수)은 즉시 계산해 반환한다. AI 분석 4개 섹션은 최초 요청 시 백그라운드로 생성이 시작되며, 응답의 `status` 로 진행 상태를 알린다: `GENERATING`(HTTP 202, 분석 미완료·재요청 필요) / `READY`(HTTP 200, 4개 섹션 포함) / `FAILED`(HTTP 202, 다음 요청 시 자동 재시도). FE 는 202 응답을 폴링해야 한다.",
+        "operationId": "getReport",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseInvestmentReportResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/simulation/sessions/{sessionId}/portfolio": {
+      "get": {
+        "tags": [
+          "모의투자 세션"
+        ],
+        "summary": "포트폴리오 개요 조회",
+        "description": "세션의 보유 종목, 평가금액, 수익률 등 현재 포트폴리오 요약.",
+        "operationId": "getPortfolioOverview",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponsePortfolioOverviewResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/simulation/sessions/{sessionId}/daily-data": {
+      "get": {
+        "tags": [
+          "모의투자 세션"
+        ],
+        "summary": "현재일 데이터 조회",
+        "description": "저장 없이 세션의 현재 거래일 데이터를 다시 조회한다.",
+        "operationId": "getDailyData",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseDayResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/news/random": {
+      "get": {
+        "tags": [
+          "뉴스 학습"
+        ],
+        "summary": "학습용 랜덤 뉴스 조회",
+        "description": "아직 판단하지 않은 뉴스 1건을 무작위로 반환한다.",
+        "operationId": "getRandomNews",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseNewsResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ApiResponseSessionResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SessionResponse"
+          }
+        }
+      },
+      "SessionResponse": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "userId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "initialCapital": {
+            "type": "number"
+          },
+          "currentCapital": {
+            "type": "number"
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "currentSimulationDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "COMPLETED",
+              "ABANDONED"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SignUpRequest": {
+        "required": [
+          "email",
+          "password"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          }
+        }
+      },
+      "ApiResponseVoid": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          }
+        }
+      },
+      "SignInRequest": {
+        "required": [
+          "email",
+          "password"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          }
+        }
+      },
+      "ApiResponseSignInResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SignInResponse"
+          }
+        }
+      },
+      "JwtToken": {
+        "type": "object",
+        "properties": {
+          "grantType": {
+            "type": "string"
+          },
+          "accessToken": {
+            "type": "string"
+          },
+          "refreshToken": {
+            "type": "string"
+          }
+        }
+      },
+      "SignInResponse": {
+        "type": "object",
+        "properties": {
+          "jwtToken": {
+            "$ref": "#/components/schemas/JwtToken"
+          }
+        }
+      },
+      "RefreshRequest": {
+        "required": [
+          "refreshToken"
+        ],
+        "type": "object",
+        "properties": {
+          "refreshToken": {
+            "type": "string"
+          }
+        }
+      },
+      "PasswordResetRequest": {
+        "required": [
+          "code",
+          "email",
+          "newPassword"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "newPassword": {
+            "type": "string"
+          }
+        }
+      },
+      "EmailVerificationRequest": {
+        "required": [
+          "code",
+          "email"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        }
+      },
+      "ApiResponseEmailVerificationResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/EmailVerificationResponse"
+          }
+        }
+      },
+      "EmailVerificationResponse": {
+        "type": "object",
+        "properties": {
+          "verified": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "SessionCreateRequest": {
+        "required": [
+          "endDate",
+          "initialCapital",
+          "startDate"
+        ],
+        "type": "object",
+        "properties": {
+          "initialCapital": {
+            "minimum": 1000000,
+            "type": "number"
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      },
+      "TradeRequest": {
+        "required": [
+          "price",
+          "quantity",
+          "stockCode",
+          "tradeType"
+        ],
+        "type": "object",
+        "properties": {
+          "stockCode": {
+            "type": "string"
+          },
+          "tradeType": {
+            "type": "string",
+            "enum": [
+              "BUY",
+              "SELL"
+            ]
+          },
+          "quantity": {
+            "minimum": 1,
+            "type": "integer",
+            "format": "int64"
+          },
+          "price": {
+            "minimum": 1,
+            "type": "number"
+          }
+        }
+      },
+      "ApiResponseTradeResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/TradeResponse"
+          }
+        }
+      },
+      "TradeResponse": {
+        "type": "object",
+        "properties": {
+          "tradeId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "sessionId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "stockCode": {
+            "type": "string"
+          },
+          "stockName": {
+            "type": "string"
+          },
+          "tradeType": {
+            "type": "string",
+            "enum": [
+              "BUY",
+              "SELL"
+            ]
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "price": {
+            "type": "number"
+          },
+          "totalAmount": {
+            "type": "number"
+          },
+          "tradeDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "currentCapital": {
+            "type": "number"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ApiResponseDayResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/DayResponse"
+          }
+        }
+      },
+      "DayResponse": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "simulationDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "currentCapital": {
+            "type": "number"
+          },
+          "totalAsset": {
+            "type": "number"
+          },
+          "profitRate": {
+            "type": "number",
+            "format": "double"
+          },
+          "dailyProfitRate": {
+            "type": "number",
+            "format": "double"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "COMPLETED",
+              "ABANDONED"
+            ]
+          },
+          "todayNews": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NewsResponse"
+            }
+          }
+        }
+      },
+      "NewsResponse": {
+        "type": "object",
+        "properties": {
+          "newsId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "title": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          },
+          "articleDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "source": {
+            "type": "string"
+          },
+          "sentiment": {
+            "type": "string",
+            "enum": [
+              "POSITIVE",
+              "NEGATIVE",
+              "NEUTRAL"
+            ]
+          },
+          "eventType": {
+            "type": "string",
+            "enum": [
+              "PANDEMIC",
+              "POLICY",
+              "DISASTER",
+              "ECONOMIC",
+              "TECHNOLOGY",
+              "GEOPOLITICAL"
+            ]
+          }
+        }
+      },
+      "AIAnalysisRequest": {
+        "required": [
+          "reason",
+          "sentiment"
+        ],
+        "type": "object",
+        "properties": {
+          "sentiment": {
+            "type": "string",
+            "enum": [
+              "POSITIVE",
+              "NEGATIVE",
+              "NEUTRAL"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
+      "AIAnalysisResponse": {
+        "type": "object",
+        "properties": {
+          "aiSentiment": {
+            "type": "string",
+            "enum": [
+              "POSITIVE",
+              "NEGATIVE",
+              "NEUTRAL"
+            ]
+          },
+          "aiFeedback": {
+            "type": "string"
+          },
+          "correct": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponseAIAnalysisResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/AIAnalysisResponse"
+          }
+        }
+      },
+      "ApiResponseUserDetailResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/UserDetailResponse"
+          }
+        }
+      },
+      "UserDetailResponse": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "email": {
+            "type": "string"
+          }
+        }
+      },
+      "ApiResponseStockPriceHistoryResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/StockPriceHistoryResponse"
+          }
+        }
+      },
+      "StockPriceHistoryItem": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "openPrice": {
+            "type": "number"
+          },
+          "closePrice": {
+            "type": "number"
+          },
+          "highPrice": {
+            "type": "number"
+          },
+          "lowPrice": {
+            "type": "number"
+          },
+          "volume": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "dailyChangeRate": {
+            "type": "number",
+            "format": "double"
+          },
+          "baseChangeRate": {
+            "type": "number",
+            "format": "double"
+          },
+          "isEventDate": {
+            "type": "boolean"
+          }
+        }
+      },
+      "StockPriceHistoryResponse": {
+        "type": "object",
+        "properties": {
+          "stockId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "stockCode": {
+            "type": "string"
+          },
+          "stockName": {
+            "type": "string"
+          },
+          "sector": {
+            "type": "string"
+          },
+          "prices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockPriceHistoryItem"
+            }
+          }
+        }
+      },
+      "ApiResponseListStockPriceHistoryResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockPriceHistoryResponse"
+            }
+          }
+        }
+      },
+      "Pageable": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "minimum": 0,
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "minimum": 1,
+            "type": "integer",
+            "format": "int32"
+          },
+          "sort": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ApiResponsePageResponseSessionResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/PageResponseSessionResponse"
+          }
+        }
+      },
+      "PageResponseSessionResponse": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SessionResponse"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "hasNext": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponsePageResponseTradeResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/PageResponseTradeResponse"
+          }
+        }
+      },
+      "PageResponseTradeResponse": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TradeResponse"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "hasNext": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponseInvestmentReportResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/InvestmentReportResponse"
+          }
+        }
+      },
+      "InvestmentReportResponse": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "initialCapital": {
+            "type": "number"
+          },
+          "finalAsset": {
+            "type": "number"
+          },
+          "totalProfitRate": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalTradeCount": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "buyCount": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "sellCount": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "status": {
+            "type": "string"
+          },
+          "overallAnalysis": {
+            "type": "string"
+          },
+          "newsResponseAnalysis": {
+            "type": "string"
+          },
+          "riskManagementAnalysis": {
+            "type": "string"
+          },
+          "improvementSuggestions": {
+            "type": "string"
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ApiResponsePortfolioOverviewResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/PortfolioOverviewResponse"
+          }
+        }
+      },
+      "PortfolioItemResponse": {
+        "type": "object",
+        "properties": {
+          "stockCode": {
+            "type": "string"
+          },
+          "stockName": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "averagePrice": {
+            "type": "number"
+          },
+          "currentPrice": {
+            "type": "number"
+          },
+          "totalValue": {
+            "type": "number"
+          },
+          "profitRate": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "PortfolioOverviewResponse": {
+        "type": "object",
+        "properties": {
+          "currentCapital": {
+            "type": "number"
+          },
+          "totalStockValue": {
+            "type": "number"
+          },
+          "totalAsset": {
+            "type": "number"
+          },
+          "totalProfitRate": {
+            "type": "number",
+            "format": "double"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PortfolioItemResponse"
+            }
+          }
+        }
+      },
+      "ApiResponseNewsResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/NewsResponse"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}

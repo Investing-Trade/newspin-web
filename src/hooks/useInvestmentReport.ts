@@ -1,0 +1,18 @@
+import { useQuery } from '@tanstack/react-query'
+
+import { reportApi } from '../api/report'
+
+const POLL_INTERVAL_MS = 2500
+
+/**
+ * I-11: 투자 리포트는 비동기로 생성된다. 이 훅은 상태가 `GENERATING`/`FAILED` 인 동안
+ * 자동으로 재조회(폴링)하고, `READY` 가 되면 멈춘다. 화면 쪽에서는 폴링 여부를 신경 쓸 필요 없이
+ * `report.status` 만 보고 렌더링을 분기하면 된다.
+ */
+export function useInvestmentReport(sessionId: number) {
+  return useQuery({
+    queryKey: ['report', sessionId],
+    queryFn: () => reportApi.getReport(sessionId),
+    refetchInterval: (query) => (query.state.data?.status === 'READY' ? false : POLL_INTERVAL_MS),
+  })
+}
