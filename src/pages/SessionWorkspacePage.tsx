@@ -4,6 +4,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { simulationApi } from '../api/simulation'
 import { stockApi } from '../api/stock'
+import { Button } from '../components/ui/Button'
+import { ErrorMessage } from '../components/ui/ErrorMessage'
+import { LoadingState } from '../components/ui/LoadingState'
 import { PriceSparkline } from '../components/PriceSparkline'
 import type { TradeType } from '../api/domain'
 import { useInvestmentReport } from '../hooks/useInvestmentReport'
@@ -77,20 +80,20 @@ export function SessionWorkspacePage() {
     onError: () => setTradeError('거래에 실패했습니다. 잔고/보유수량 또는 시세 변동을 확인하세요.'),
   })
 
-  if (!daily) return <p className="text-sm text-gray-500">불러오는 중…</p>
+  if (!daily) return <LoadingState />
 
   const isActive = daily.status === 'ACTIVE'
 
   return (
     <div className="flex flex-col gap-6">
-      <section className="flex items-center justify-between rounded border border-gray-200 p-4">
+      <section className="flex flex-col gap-2 rounded border border-gray-200 p-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-lg font-semibold">세션 #{id}</h1>
           <p className="text-sm text-gray-500">
             {daily.simulationDate} · {daily.status}
           </p>
         </div>
-        <div className="text-right text-sm">
+        <div className="text-sm sm:text-right">
           <p>총자산 {daily.totalAsset.toLocaleString()}원</p>
           <p className={daily.profitRate >= 0 ? 'text-green-600' : 'text-red-600'}>
             누적 {daily.profitRate.toFixed(2)}% · 전일비 {daily.dailyProfitRate.toFixed(2)}%
@@ -98,21 +101,13 @@ export function SessionWorkspacePage() {
         </div>
       </section>
 
-      <div className="flex gap-2">
-        <button
-          disabled={!isActive || nextDay.isPending}
-          onClick={() => nextDay.mutate()}
-          className="rounded bg-gray-900 px-3 py-2 text-sm text-white disabled:opacity-40"
-        >
+      <div className="flex flex-wrap gap-2">
+        <Button disabled={!isActive || nextDay.isPending} onClick={() => nextDay.mutate()}>
           {nextDay.isPending ? '진행 중…' : '다음 날 진행'}
-        </button>
-        <button
-          disabled={!isActive || complete.isPending}
-          onClick={() => complete.mutate()}
-          className="rounded border px-3 py-2 text-sm disabled:opacity-40"
-        >
+        </Button>
+        <Button variant="secondary" disabled={!isActive || complete.isPending} onClick={() => complete.mutate()}>
           세션 종료
-        </button>
+        </Button>
       </div>
 
       {daily.todayNews.length > 0 && (
@@ -137,7 +132,7 @@ export function SessionWorkspacePage() {
             <select
               value={selectedStock}
               onChange={(e) => setSelectedStock(e.target.value)}
-              className="rounded border border-gray-300 px-2 py-1"
+              className="rounded border border-gray-300 px-2 py-1 focus:border-gray-500 focus:outline-2 focus:outline-offset-1 focus:outline-gray-400"
             >
               <option value="">선택</option>
               {stocks?.map((s) => (
@@ -154,33 +149,33 @@ export function SessionWorkspacePage() {
               min={1}
               value={quantity}
               onChange={(e) => setQuantity(Number(e.target.value))}
-              className="w-20 rounded border border-gray-300 px-2 py-1"
+              className="w-20 rounded border border-gray-300 px-2 py-1 focus:border-gray-500 focus:outline-2 focus:outline-offset-1 focus:outline-gray-400"
             />
           </label>
-          <button
+          <Button
+            variant="success"
             disabled={!isActive || !selectedStock || trade.isPending}
             onClick={() => {
               setTradeError(null)
               trade.mutate('BUY')
             }}
-            className="rounded bg-green-600 px-3 py-2 text-white disabled:opacity-40"
           >
             매수
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="danger"
             disabled={!isActive || !selectedStock || trade.isPending}
             onClick={() => {
               setTradeError(null)
               trade.mutate('SELL')
             }}
-            className="rounded bg-red-600 px-3 py-2 text-sm text-white disabled:opacity-40"
           >
             매도
-          </button>
+          </Button>
         </div>
-        {tradeError && <p className="mt-2 text-sm text-red-600">{tradeError}</p>}
+        {tradeError && <ErrorMessage>{tradeError}</ErrorMessage>}
         {selectedStockInfo && (
-          <div className="mt-3">
+          <div className="mt-3 overflow-x-auto">
             <p className="mb-1 text-xs text-gray-500">
               최근 {selectedStockInfo.prices.length}거래일 (주황 점 = 이벤트 뉴스 발생일)
             </p>
@@ -220,12 +215,12 @@ export function SessionWorkspacePage() {
         </ul>
         {trades && trades.totalPages > 1 && (
           <div className="mt-2 flex gap-2 text-sm">
-            <button disabled={tradePage === 0} onClick={() => setTradePage((p) => p - 1)}>
+            <Button variant="secondary" disabled={tradePage === 0} onClick={() => setTradePage((p) => p - 1)} className="px-2 py-1">
               이전
-            </button>
-            <button disabled={!trades.hasNext} onClick={() => setTradePage((p) => p + 1)}>
+            </Button>
+            <Button variant="secondary" disabled={!trades.hasNext} onClick={() => setTradePage((p) => p + 1)} className="px-2 py-1">
               다음
-            </button>
+            </Button>
           </div>
         )}
       </section>
@@ -236,7 +231,9 @@ export function SessionWorkspacePage() {
         <section className="rounded border border-gray-200 p-4">
           <h2 className="mb-2 font-medium">투자 리포트</h2>
           {report?.status !== 'READY' && (
-            <p className="text-sm text-gray-500">AI 분석 생성 중… ({report?.status ?? '로딩'})</p>
+            <p role="status" aria-live="polite" className="text-sm text-gray-500">
+              AI 분석 생성 중… ({report?.status ?? '로딩'})
+            </p>
           )}
           {report?.status === 'READY' && (
             <div className="flex flex-col gap-3 text-sm">

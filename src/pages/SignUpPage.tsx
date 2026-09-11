@@ -2,6 +2,9 @@ import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { authApi } from '../api/auth'
+import { Button } from '../components/ui/Button'
+import { ErrorMessage } from '../components/ui/ErrorMessage'
+import { FormField } from '../components/ui/FormField'
 
 type Step = 'email' | 'code' | 'password'
 
@@ -71,49 +74,39 @@ export function SignUpPage() {
   }
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-4 px-6">
+    <div className="mx-auto flex min-h-screen w-full max-w-sm flex-col justify-center gap-4 px-4 sm:px-6">
       <h1 className="text-xl font-semibold">회원가입</h1>
 
       {step === 'email' && (
         <form onSubmit={sendCode} className="flex flex-col gap-3">
-          <input
+          <FormField
+            label="이메일"
             type="email"
+            autoComplete="email"
             required
-            placeholder="이메일"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="rounded border border-gray-300 px-3 py-2 text-sm"
           />
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="rounded bg-gray-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-          >
+          {error && <ErrorMessage>{error}</ErrorMessage>}
+          <Button type="submit" disabled={isSubmitting} className="w-full">
             {isSubmitting ? '발송 중…' : '인증코드 발송'}
-          </button>
+          </Button>
         </form>
       )}
 
       {step === 'code' && (
         <form onSubmit={verifyCode} className="flex flex-col gap-3">
           <p className="text-sm text-gray-500">{email}</p>
-          {info && <p className="text-sm text-green-600">{info}</p>}
-          <input
-            required
-            placeholder="인증코드"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            className="rounded border border-gray-300 px-3 py-2 text-sm"
-          />
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="rounded bg-gray-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-          >
+          {info && (
+            <p role="status" className="text-sm text-green-600">
+              {info}
+            </p>
+          )}
+          <FormField label="인증코드" required value={code} onChange={(e) => setCode(e.target.value)} />
+          {error && <ErrorMessage>{error}</ErrorMessage>}
+          <Button type="submit" disabled={isSubmitting} className="w-full">
             {isSubmitting ? '확인 중…' : '인증 확인'}
-          </button>
+          </Button>
           <button type="button" onClick={() => setStep('email')} className="text-xs text-gray-400 underline">
             이메일 다시 입력
           </button>
@@ -122,24 +115,22 @@ export function SignUpPage() {
 
       {step === 'password' && (
         <form onSubmit={submitSignUp} className="flex flex-col gap-3">
-          <p className="text-sm text-green-600">이메일 인증 완료 — {email}</p>
-          <input
+          <p role="status" className="text-sm text-green-600">
+            이메일 인증 완료 — {email}
+          </p>
+          <FormField
+            label="비밀번호"
             type="password"
+            autoComplete="new-password"
             required
             minLength={8}
-            placeholder="비밀번호"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="rounded border border-gray-300 px-3 py-2 text-sm"
           />
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="rounded bg-gray-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-          >
+          {error && <ErrorMessage>{error}</ErrorMessage>}
+          <Button type="submit" disabled={isSubmitting} className="w-full">
             {isSubmitting ? '가입 중…' : '가입하기'}
-          </button>
+          </Button>
         </form>
       )}
 
