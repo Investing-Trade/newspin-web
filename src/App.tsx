@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 
 import { Layout } from './components/Layout'
 import { CreateSessionPage } from './pages/CreateSessionPage'
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { NewsPage } from './pages/NewsPage'
 import { SessionListPage } from './pages/SessionListPage'
 import { SessionWorkspacePage } from './pages/SessionWorkspacePage'
@@ -14,6 +15,7 @@ export function App() {
     <Routes>
       <Route path="/sign-in" element={<SignInPage />} />
       <Route path="/sign-up" element={<SignUpPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
       <Route
         element={
