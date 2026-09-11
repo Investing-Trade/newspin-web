@@ -28,7 +28,7 @@ export function NewsPage() {
   if (!news) return null
 
   return (
-    <div className="mx-auto max-w-2xl px-6 py-8">
+    <div className="mx-auto max-w-2xl">
       <h1 className="mb-4 text-xl font-semibold">{news.title}</h1>
       <p className="mb-4 whitespace-pre-wrap text-sm text-gray-700">{news.content}</p>
 
