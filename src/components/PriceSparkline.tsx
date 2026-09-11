@@ -31,7 +31,8 @@ export function PriceSparkline({ prices }: { prices: StockPricePoint[] }) {
   const first = closes[0]
   const last = closes.at(-1)!
   const isUp = last >= first
-  const stroke = isUp ? '#16a34a' : '#dc2626'
+  // 국내 증권 앱 관례: 상승=빨강(rose-600), 하락=파랑(blue-600) — Button/테이블과 동일 색상 사용.
+  const stroke = isUp ? '#e11d48' : '#2563eb'
 
   return (
     <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} width={WIDTH} height={HEIGHT} className="overflow-visible">

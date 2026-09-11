@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { simulationApi } from '../api/simulation'
+import { getErrorMessage } from '../api/errors'
 import { Button } from '../components/ui/Button'
 import { ErrorMessage } from '../components/ui/ErrorMessage'
 import { FormField } from '../components/ui/FormField'
@@ -29,8 +30,10 @@ export function CreateSessionPage() {
         endDate,
       })
       navigate(`/sessions/${session.sessionId}`)
-    } catch {
-      setError('세션 생성에 실패했습니다. 초기 자본은 최소 100만원, 시작일은 종료일보다 이전이어야 합니다.')
+    } catch (err) {
+      setError(
+        getErrorMessage(err, '세션 생성에 실패했습니다. 초기 자본은 최소 100만원, 시작일은 종료일보다 이전이어야 합니다.'),
+      )
     } finally {
       setIsSubmitting(false)
     }
